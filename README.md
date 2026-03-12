@@ -45,6 +45,10 @@ Your POS application can print to PrintInspector exactly as it would to a physic
 
 ## 📸 Sample Screenshots
 
+<p align="center">
+  <img src="docs/screenshot/Screenshot_1773292060.png" width="300" />
+  <img src="docs/screenshot/Screenshot_1773292083.png" width="300" />
+</p>
 
 
 **Repo structure:**
