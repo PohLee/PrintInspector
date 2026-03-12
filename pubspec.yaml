@@ -1,0 +1,48 @@
+name: print_inspector
+description: "PrintInspector - Capture and inspect printer commands (ESC/POS and Star protocols) for POS debugging"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  sqflite: ^2.3.3+1
+  path_provider: ^2.1.5
+  intl: ^0.20.1
+  permission_handler: ^11.3.1
+  uuid: ^4.5.1
+  flutter_local_notifications: ^18.0.1
+  usb_serial: ^0.5.1
+  flutter_star_prnt_plus: ^2.4.6
+  image: ^4.3.0
+  nsd: ^4.0.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon.png"
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#ffffff"
+  image: "assets/images/splash.png"
+  android_12:
+    image: "assets/images/splash.png"
+    icon_background_color: "#ffffff"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
