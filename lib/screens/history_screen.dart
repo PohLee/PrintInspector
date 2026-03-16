@@ -6,6 +6,7 @@ import '../services/database_service.dart';
 import '../services/print_job_service.dart';
 import '../models/print_job.dart';
 import '../parser/escpos_parser.dart';
+import '../utils/constants.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -24,12 +25,30 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
   
   PrintJob? _selectedJob;
+  late TransformationController _transformationController;
+  double _currentScale = 0.8;
+  final GlobalKey _viewerKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    _transformationController = TransformationController();
+    _transformationController.value = Matrix4.identity()..scale(_currentScale);
     _loadPrintJobs();
     _listenToPrintJobs();
+    
+    _transformationController.addListener(() {
+      final newScale = _transformationController.value.getMaxScaleOnAxis();
+      if ((newScale - _currentScale).abs() > 0.01) {
+        setState(() {
+          _currentScale = newScale;
+        });
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _resetZoom();
+    });
   }
 
   void _listenToPrintJobs() {
@@ -241,15 +260,47 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  void _updateZoom(double delta) {
+    final RenderBox? renderBox = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    
+    final width = renderBox.size.width;
+    final currentY = _transformationController.value.getTranslation().y;
+    
+    setState(() {
+      _currentScale = (_currentScale + delta).clamp(0.1, 4.0);
+      _transformationController.value = Matrix4.identity()
+        ..translate((width - 380 * _currentScale) / 2, currentY, 0)
+        ..scale(_currentScale);
+    });
+  }
+
+  void _resetZoom() {
+    final RenderBox? renderBox = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    
+    final width = renderBox.size.width;
+    setState(() {
+      _currentScale = 0.8;
+      _transformationController.value = Matrix4.identity()
+        ..translate((width - 380 * _currentScale) / 2, 0, 0)
+        ..scale(_currentScale);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppConstants.backgroundColor,
       appBar: AppBar(
         title: const Text('Print History'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppConstants.textPrimary,
         actions: [
           if (_printJobs.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep),
+              icon: const Icon(Icons.delete_sweep_rounded),
               onPressed: _deleteAllPrintJobs,
               tooltip: 'Delete All',
             ),
@@ -266,7 +317,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   width: 320,
                   child: _buildSideList(),
                 ),
-                const VerticalDivider(width: 1, thickness: 1),
+                Container(width: 1, color: Colors.black.withOpacity(0.05)),
                 Expanded(
                   child: _buildMainView(),
                 ),
@@ -288,16 +339,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Column(
       children: [
         Container(
-          color: Theme.of(context).colorScheme.surface,
+          color: AppConstants.surfaceColor,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             children: [
               IconButton(onPressed: () {
                 setState(() { _selectedJob = null; });
-              }, icon: const Icon(Icons.arrow_back)),
-              const Expanded(child: Text("Job Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+              }, icon: const Icon(Icons.arrow_back_rounded)),
+              const Expanded(child: Text("Job Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppConstants.textPrimary))),
               IconButton(
-                icon: const Icon(Icons.info_outline),
+                icon: const Icon(Icons.info_outline_rounded),
                 onPressed: () => _showJobInfoBottomSheet(context, _selectedJob!),
                 tooltip: 'Job Info',
               ),
@@ -317,12 +368,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
           padding: const EdgeInsets.all(16.0),
           child: TextField(
             controller: _searchController,
+            style: const TextStyle(color: AppConstants.textPrimary),
             decoration: InputDecoration(
               hintText: 'Search print jobs...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search_rounded, color: AppConstants.primaryColor),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: const Icon(Icons.clear_rounded),
                       onPressed: () {
                         _searchController.clear();
                         setState(() { _searchQuery = ''; });
@@ -331,10 +383,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     )
                   : null,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              fillColor: AppConstants.surfaceColor,
             ),
             onChanged: (q) {
               setState(() { _searchQuery = q; });
@@ -349,14 +402,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ? _buildEmptyState()
                   : RefreshIndicator(
                       onRefresh: _loadPrintJobs,
-                      child: ListView.separated(
+                      child: ListView.builder(
                         itemCount: _printJobs.length,
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                        separatorBuilder: (context, index) => const SizedBox(height: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         itemBuilder: (context, index) {
                           final job = _printJobs[index];
-                          // On mobile, keep it unselected visually when viewing main list? Actually it's fine.
-                          // If mobile and in list view, _selectedJob is null, so isSelected is false.
                           final isSelected = MediaQuery.of(context).size.width >= 600 && _selectedJob?.id == job.id;
                           return _buildListTileCard(job, isSelected);
                         },
@@ -376,9 +426,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.print, size: 80, color: Theme.of(context).colorScheme.outline),
+            Icon(Icons.print_rounded, size: 80, color: AppConstants.textSecondary.withOpacity(0.2)),
             const SizedBox(height: 16),
-            Text('Select a print job to view details', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
+            const Text('Select a print job to view details', style: TextStyle(color: AppConstants.textSecondary))
           ],
         )
       );
@@ -389,31 +439,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+            color: AppConstants.surfaceColor,
+            border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.05))),
           ),
           child: Row(
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Print Result', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  const Text('Print Sample', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppConstants.textPrimary)),
                   const SizedBox(height: 4),
-                  Text(DateFormat('MMM dd, yyyy HH:mm:ss').format(_selectedJob!.timestamp), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text(DateFormat('MMM dd, yyyy HH:mm:ss').format(_selectedJob!.timestamp), style: const TextStyle(color: AppConstants.textSecondary, fontSize: 13)),
                 ],
               ),
               const Spacer(),
-              FilledButton.tonalIcon(
-                onPressed: () => _copyText(_selectedJob!),
-                icon: const Icon(Icons.copy, size: 20),
-                label: const Text('Copy Rendered'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: () => _showJobInfoBottomSheet(context, _selectedJob!),
-                icon: const Icon(Icons.info_outline, size: 20),
-                label: const Text('Job Info'),
-              ),
+              _buildJobActionButtons(_selectedJob!),
             ],
           ),
         ),
@@ -422,31 +462,138 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  Widget _buildJobActionButtons(PrintJob job) {
+    return Row(
+      children: [
+        IconButton(
+          onPressed: () => _copyText(job),
+          icon: const Icon(Icons.copy_rounded, color: AppConstants.primaryColor),
+          tooltip: 'Copy Text',
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: () => _showJobInfoBottomSheet(context, job),
+          icon: const Icon(Icons.info_outline_rounded, color: AppConstants.primaryColor),
+          tooltip: 'Job Info',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildZoomToolbar() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppConstants.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black.withOpacity(0.05)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            onPressed: () => _updateZoom(-0.1),
+            icon: const Icon(Icons.zoom_out_rounded, size: 18),
+            tooltip: 'Zoom Out',
+            color: AppConstants.textPrimary,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 40),
+          ),
+          Container(
+            width: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppConstants.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '${(_currentScale * 100).toInt()}%',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11, 
+                fontWeight: FontWeight.bold,
+                color: AppConstants.primaryColor,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => _updateZoom(0.1),
+            icon: const Icon(Icons.zoom_in_rounded, size: 18),
+            tooltip: 'Zoom In',
+            color: AppConstants.textPrimary,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 40),
+          ),
+          IconButton(
+            onPressed: _resetZoom,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            tooltip: 'Reset Zoom (80%)',
+            color: AppConstants.textSecondary,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 40),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildJobContent(PrintJob job) {
     return Container(
+      key: _viewerKey,
       width: double.infinity,
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      padding: const EdgeInsets.all(24.0),
-      child: SingleChildScrollView(
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 600),
-            padding: const EdgeInsets.all(24.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.zero,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                )
-              ],
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: _buildPrintoutContent(job),
+      color: AppConstants.backgroundColor,
+      child: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return InteractiveViewer(
+                transformationController: _transformationController,
+                boundaryMargin: const EdgeInsets.symmetric(horizontal: 5000, vertical: 1000),
+                minScale: 0.1,
+                maxScale: 4.0,
+                constrained: false,
+                panAxis: PanAxis.vertical,
+                child: Container(
+                  width: 380,
+                  margin: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 15,
+                        offset: Offset(0, 5),
+                      )
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                    child: _buildPrintoutContent(job),
+                  ),
+                ),
+              );
+            },
           ),
-        ),
+          Positioned(
+            bottom: 24,
+            right: 24,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FloatingActionButton.extended(
+                  heroTag: 'history_copy_text',
+                  onPressed: () => _copyText(job),
+                  icon: const Icon(Icons.copy_rounded),
+                  label: const Text('Copy'),
+                  backgroundColor: AppConstants.surfaceColor,
+                  foregroundColor: AppConstants.primaryColor,
+                  elevation: 4,
+                ),
+                const SizedBox(height: 16),
+                _buildZoomToolbar(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -482,18 +629,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildListTileCard(PrintJob job, bool isSelected) {
-    final colorScheme = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('MMM dd HH:mm');
 
-    return Card(
-      elevation: isSelected ? 2 : 0,
-      color: isSelected ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest.withOpacity(0.3),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: isSelected ? BorderSide(color: colorScheme.primary.withOpacity(0.5), width: 1.5) : BorderSide.none,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppConstants.surfaceColor,
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        border: Border.all(
+          color: isSelected ? AppConstants.primaryColor : Colors.black.withOpacity(0.05),
+          width: isSelected ? 1.5 : 1,
+        ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
         onTap: () {
           setState(() {
             _selectedJob = job;
@@ -509,13 +658,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isSelected ? colorScheme.primary.withOpacity(0.1) : colorScheme.surface,
-                      borderRadius: BorderRadius.circular(8),
+                      color: (isSelected ? AppConstants.primaryColor : AppConstants.textSecondary).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       _getConnectionIcon(job.connectionType),
                       size: 20,
-                      color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                      color: isSelected ? AppConstants.primaryColor : AppConstants.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -525,16 +674,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       children: [
                         Text(
                           dateFormat.format(job.timestamp),
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.primary,
-                              ),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isSelected ? AppConstants.primaryColor : AppConstants.textPrimary,
+                          ),
                         ),
                         Text(
                           job.connectionTypeDisplay,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: isSelected ? colorScheme.onPrimaryContainer.withOpacity(0.8) : colorScheme.onSurfaceVariant,
-                              ),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppConstants.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -542,24 +693,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   _buildRenderTypeChip(job, isSelected),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Row(
                 children: [
+                  const Icon(Icons.straighten_rounded, size: 14, color: AppConstants.textSecondary),
+                  const SizedBox(width: 4),
                   Text(
                     '${job.jobSize} bytes',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isSelected ? colorScheme.onPrimaryContainer.withOpacity(0.7) : colorScheme.onSurfaceVariant,
-                        ),
+                    style: const TextStyle(fontSize: 11, color: AppConstants.textSecondary),
                   ),
                   const Spacer(),
                   if (job.id != null)
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      onPressed: () {
-                        // Prevent the card tap
-                        _deletePrintJob(job.id!);
-                      },
-                      color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      onPressed: () => _deletePrintJob(job.id!),
+                      color: AppConstants.errorColor.withOpacity(0.7),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -573,31 +721,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
   
   Widget _buildRenderTypeChip(PrintJob job, bool isSelected) {
-    final colorScheme = Theme.of(context).colorScheme;
-    IconData icon = Icons.text_snippet;
-    Color chipColor = isSelected ? colorScheme.primary.withOpacity(0.2) : colorScheme.surfaceVariant;
-    Color textColor = isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant;
+    IconData icon = Icons.text_snippet_rounded;
+    Color chipColor = (isSelected ? AppConstants.primaryColor : AppConstants.textSecondary).withOpacity(0.1);
+    Color textColor = isSelected ? AppConstants.primaryColor : AppConstants.textSecondary;
     
     if (job.renderType == 'Image') {
-      icon = Icons.image;
-      if (!isSelected) {
-        chipColor = colorScheme.secondaryContainer;
-        textColor = colorScheme.onSecondaryContainer;
-      }
+      icon = Icons.image_rounded;
     }
     if (job.renderType == 'Mixed') {
-      icon = Icons.collections;
-      if (!isSelected) {
-        chipColor = colorScheme.tertiaryContainer;
-        textColor = colorScheme.onTertiaryContainer;
-      }
+      icon = Icons.collections_rounded;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: chipColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -606,10 +745,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const SizedBox(width: 4),
           Text(
             job.renderType,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: textColor,
-                  fontWeight: FontWeight.bold,
-                ),
+            style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -621,28 +757,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.print_disabled,
-            size: 64,
-            color: Theme.of(context).colorScheme.outline,
-          ),
+          Icon(Icons.print_disabled_rounded, size: 64, color: AppConstants.textSecondary.withOpacity(0.2)),
           const SizedBox(height: 16),
-          Text(
-            _searchQuery.isEmpty ? 'No print jobs yet' : 'No results found',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
+          const Text('No print jobs yet', style: TextStyle(color: AppConstants.textSecondary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            _searchQuery.isEmpty
-                ? 'Print jobs will appear here when received'
-                : 'Try a different search term',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.8),
-                ),
-          ),
+          const Text('Incoming prints will appear here', style: TextStyle(color: AppConstants.textSecondary, fontSize: 13)),
         ],
       ),
     );
@@ -669,6 +788,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void dispose() {
     _printJobSubscription?.cancel();
     _searchController.dispose();
+    _transformationController.dispose();
     super.dispose();
   }
 }

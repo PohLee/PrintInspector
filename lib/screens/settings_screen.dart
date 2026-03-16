@@ -168,13 +168,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
+        backgroundColor: AppConstants.backgroundColor,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
+      backgroundColor: AppConstants.backgroundColor,
       appBar: AppBar(
         title: const Text('Settings'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: AppConstants.textPrimary,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -186,23 +191,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildTextField(
                 controller: _nameController,
                 label: 'Printer Name',
-                icon: Icons.edit,
+                icon: Icons.edit_rounded,
                 helperText: 'Name displayed for discovery',
               ),
-              const Divider(),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               _buildPortSetting(),
-              const Divider(),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               _buildTextField(
                 controller: _pageWidthController,
                 label: 'Page Width (mm)',
-                icon: Icons.straighten,
+                icon: Icons.straighten_rounded,
                 helperText: 'Common: 58, 80, 82, 100',
               ),
-              const Divider(),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               _buildTextField(
                 controller: _dpiController,
                 label: 'DPI (dots per inch)',
-                icon: Icons.grid_on,
+                icon: Icons.grid_on_rounded,
                 helperText: 'Common: 180, 203, 300',
               ),
             ]),
@@ -212,47 +217,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildSwitchTile(
                 title: 'Network Server',
                 subtitle: 'Enable TCP/IP server for receiving print jobs',
-                icon: Icons.wifi,
+                icon: Icons.wifi_rounded,
                 value: _settingsService.networkEnabled,
+                activeColor: AppConstants.accentColor,
                 onChanged: (value) {
                   _settingsService.setNetworkEnabled(value);
                   setState(() {});
                 },
               ),
-              const Divider(),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               _buildSwitchTile(
                 title: 'USB Host',
                 subtitle: 'Enable USB host mode (Android only)',
-                icon: Icons.usb,
+                icon: Icons.usb_rounded,
                 value: _settingsService.usbEnabled,
+                activeColor: AppConstants.primaryColor,
                 onChanged: (value) {
                   _settingsService.setUsbEnabled(value);
                   setState(() {});
                 },
               ),
-              const Divider(),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               _buildSwitchTile(
                 title: 'Star Protocol',
                 subtitle: 'Enable Star printer protocol support',
-                icon: Icons.print,
+                icon: Icons.print_rounded,
                 value: _settingsService.starEnabled,
+                activeColor: AppConstants.warningColor,
                 onChanged: (value) {
                   _settingsService.setStarEnabled(value);
                   setState(() {});
                 },
               ),
-              const Divider(),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               _buildMDNSSetting(),
             ]),
             const SizedBox(height: 24),
-            _buildSectionTitle('Auto Start'),
+            _buildSectionTitle('System'),
             _buildSettingsCard([
               _buildSwitchTile(
-                title: 'Start TCP/IP Printer Server on App Launch',
-                subtitle:
-                    'Automatically start the network print server when the app opens',
-                icon: Icons.play_circle,
+                title: 'Auto Start',
+                subtitle: 'Start server automatically on app launch',
+                icon: Icons.play_circle_rounded,
                 value: _settingsService.autoStart,
+                activeColor: AppConstants.primaryColor,
                 onChanged: (value) {
                   _settingsService.setAutoStart(value);
                   setState(() {});
@@ -265,32 +273,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildInfoTile(
                 title: 'Version',
                 value: AppConstants.appVersion,
-                icon: Icons.info_outline,
+                icon: Icons.info_outline_rounded,
               ),
-              const Divider(),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               _buildInfoTile(
                 title: 'ESC/POS Commands',
                 value: 'Full Support',
-                icon: Icons.check_circle_outline,
+                icon: Icons.check_circle_outline_rounded,
               ),
             ]),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 56,
               child: ElevatedButton(
                 onPressed: _saveSettings,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppConstants.primaryColor,
                   foregroundColor: Colors.white,
+                  elevation: 4,
+                  shadowColor: AppConstants.primaryColor.withOpacity(0.4),
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.borderRadius),
+                    borderRadius: BorderRadius.circular(28),
                   ),
                 ),
-                child: const Text('Save Settings'),
+                child: const Text(
+                  'SAVE SETTINGS',
+                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                ),
               ),
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -299,28 +312,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
       child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
-            ),
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          letterSpacing: 1.2,
+          color: AppConstants.textSecondary,
+        ),
       ),
     );
   }
 
   Widget _buildSettingsCard(List<Widget> children) {
-    return Card(
-      elevation: AppConstants.cardElevation,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppConstants.surfaceColor,
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        border: Border.all(color: Colors.black.withOpacity(0.05)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: children,
-        ),
+      child: Column(
+        children: children,
       ),
     );
   }
@@ -335,11 +348,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.all(12.0),
       child: TextField(
         controller: controller,
+        style: const TextStyle(color: AppConstants.textPrimary),
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: const TextStyle(color: AppConstants.textSecondary),
           helperText: helperText,
-          prefixIcon: Icon(icon),
-          border: const OutlineInputBorder(),
+          helperStyle: const TextStyle(fontSize: 11),
+          prefixIcon: Icon(icon, color: AppConstants.primaryColor),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey[200]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppConstants.primaryColor, width: 1.5),
+          ),
+          filled: true,
+          fillColor: Colors.grey[50],
         ),
       ),
     );
@@ -347,20 +376,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildPortSetting() {
     return ListTile(
-      leading: const Icon(Icons.settings_ethernet),
-      title: const Text('TCP Port'),
-      subtitle: Text('${_settingsService.tcpPort}'),
-      trailing: const Icon(Icons.chevron_right),
+      leading: const Icon(Icons.settings_ethernet_rounded, color: AppConstants.primaryColor),
+      title: const Text('TCP Port', style: TextStyle(color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
+      subtitle: Text('${_settingsService.tcpPort}', style: const TextStyle(color: AppConstants.textSecondary)),
+      trailing: const Icon(Icons.chevron_right_rounded, color: AppConstants.textSecondary),
       onTap: _showPortPicker,
     );
   }
 
   Widget _buildMDNSSetting() {
     return ListTile(
-      leading: const Icon(Icons.broadcast_on_home),
-      title: const Text('mDNS Service Types'),
-      subtitle: Text('${_settingsService.mdnsServiceTypes.length} enabled'),
-      trailing: const Icon(Icons.chevron_right),
+      leading: const Icon(Icons.broadcast_on_home_rounded, color: AppConstants.primaryColor),
+      title: const Text('mDNS Service Types', style: TextStyle(color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
+      subtitle: Text('${_settingsService.mdnsServiceTypes.length} enabled', style: const TextStyle(color: AppConstants.textSecondary)),
+      trailing: const Icon(Icons.chevron_right_rounded, color: AppConstants.textSecondary),
       onTap: _showMDNSServicePicker,
     );
   }
@@ -371,12 +400,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData icon,
     required bool value,
     required ValueChanged<bool> onChanged,
+    Color? activeColor,
   }) {
     return SwitchListTile(
-      secondary: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle),
+      secondary: Icon(icon, color: AppConstants.primaryColor),
+      title: Text(title, style: const TextStyle(color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle, style: const TextStyle(color: AppConstants.textSecondary, fontSize: 12)),
       value: value,
+      activeColor: activeColor,
       onChanged: onChanged,
     );
   }
@@ -387,13 +418,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData icon,
   }) {
     return ListTile(
-      leading: Icon(icon, color: AppConstants.primaryColor),
-      title: Text(title),
+      leading: Icon(icon, color: AppConstants.textSecondary.withOpacity(0.7)),
+      title: Text(title, style: const TextStyle(color: AppConstants.textPrimary)),
       trailing: Text(
         value,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[600],
-            ),
+        style: const TextStyle(
+          color: AppConstants.textSecondary,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
