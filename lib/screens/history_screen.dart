@@ -29,6 +29,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   double _currentScale = 0.8;
   final GlobalKey _viewerKey = GlobalKey();
 
+  // Multi-selection state
+  bool _isSelectionMode = false;
+  final Set<int> _selectedIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -145,7 +149,74 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (confirmed == true) {
       await _databaseService.deleteAllPrintJobs();
       _selectedJob = null;
+      _selectedIds.clear();
+      _isSelectionMode = false;
       _loadPrintJobs();
+    }
+  }
+
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+        if (_selectedIds.isEmpty) _isSelectionMode = false;
+      } else {
+        _selectedIds.add(id);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedJobs() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Selected Jobs'),
+        content: Text('Are you sure you want to delete ${_selectedIds.length} print jobs?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      for (final id in _selectedIds) {
+        await _databaseService.deletePrintJob(id);
+        if (_selectedJob?.id == id) _selectedJob = null;
+      }
+      setState(() {
+        _selectedIds.clear();
+        _isSelectionMode = false;
+      });
+      _loadPrintJobs();
+    }
+  }
+
+  Future<void> _forwardSelectedJobs() async {
+    final jobsToForward = _printJobs.where((j) => j.id != null && _selectedIds.contains(j.id)).toList();
+    // Sort by timestamp or original index if needed, here we assume current order
+    jobsToForward.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Most recent last for combined? 
+    // Actually usually you want oldest first if you select a range. 
+    // Let's sort by ID or timestamp ASC
+    jobsToForward.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    await _printJobService.forwardJobs(jobsToForward);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Forwarded ${jobsToForward.length} stickers to printer')),
+      );
+      setState(() {
+        _selectedIds.clear();
+        _isSelectionMode = false;
+      });
     }
   }
 
@@ -293,12 +364,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Scaffold(
       backgroundColor: AppConstants.backgroundColor,
       appBar: AppBar(
-        title: const Text('Print History'),
+        title: _isSelectionMode 
+          ? Text('${_selectedIds.length} Selected')
+          : const Text('Print History'),
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: AppConstants.textPrimary,
+        leading: _isSelectionMode 
+          ? IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => setState(() { 
+                _isSelectionMode = false; 
+                _selectedIds.clear(); 
+              }),
+            )
+          : null,
         actions: [
-          if (_printJobs.isNotEmpty)
+          if (_isSelectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.print_rounded),
+              onPressed: _forwardSelectedJobs,
+              tooltip: 'Forward Selected',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded),
+              onPressed: _deleteSelectedJobs,
+              tooltip: 'Delete Selected',
+            ),
+          ] else if (_printJobs.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep_rounded),
               onPressed: _deleteAllPrintJobs,
@@ -622,6 +715,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
             width: double.infinity,
             alignment: Alignment.centerLeft,
           );
+        } else if (block.type == PrintContentType.pageBreak) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Text('PAGE BREAK / CUT', style: TextStyle(fontSize: 9, color: Colors.grey.withOpacity(0.6), fontWeight: FontWeight.bold)),
+                ),
+                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+              ],
+            ),
+          );
         }
         return const SizedBox.shrink();
       }).toList(),
@@ -643,10 +750,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        onLongPress: job.id != null ? () => _toggleSelection(job.id!) : null,
         onTap: () {
-          setState(() {
-            _selectedJob = job;
-          });
+          if (_isSelectionMode && job.id != null) {
+            _toggleSelection(job.id!);
+          } else {
+            setState(() {
+              _selectedJob = job;
+            });
+          }
         },
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -655,6 +767,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
             children: [
               Row(
                 children: [
+                  if (_isSelectionMode && job.id != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: _selectedIds.contains(job.id),
+                          onChanged: (_) => _toggleSelection(job.id!),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          activeColor: AppConstants.primaryColor,
+                        ),
+                      ),
+                    ),
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(

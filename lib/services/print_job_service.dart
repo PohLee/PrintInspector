@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../app.dart';
 import '../models/print_job.dart';
+import '../screens/job_detail_screen.dart';
+import 'database_service.dart';
 import 'printer_server.dart';
 import 'star_printer_service.dart';
 import 'usb_service.dart';
@@ -11,6 +15,7 @@ class PrintJobService {
   PrintJobService._internal();
 
   final PrinterServer _printerServer = PrinterServer();
+  final DatabaseService _databaseService = DatabaseService();
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
   final UsbService _usbService = UsbService();
@@ -40,6 +45,14 @@ class PrintJobService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
+    // Check if the app was launched from a notification
+    final launchDetails = await _notifications.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp ?? false) {
+      if (launchDetails?.notificationResponse != null) {
+        _onNotificationTapped(launchDetails!.notificationResponse!);
+      }
+    }
+
     await _createNotificationChannel();
 
     _listenToAllPrintJobs();
@@ -47,8 +60,34 @@ class PrintJobService {
     _initialized = true;
   }
 
-  void _onNotificationTapped(NotificationResponse response) {
-    print('Notification tapped: ${response.payload}');
+  Future<void> _onNotificationTapped(NotificationResponse response) async {
+    final payload = response.payload;
+    if (payload == null) return;
+
+    print('Notification tapped: $payload');
+    
+    final id = int.tryParse(payload);
+    if (id == null) return;
+
+    // Wait for navigator to be ready (up to 5 seconds)
+    int attempts = 0;
+    while (App.navigatorKey.currentState == null && attempts < 10) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      attempts++;
+    }
+
+    final job = await _databaseService.getPrintJobById(id);
+    if (job != null && App.navigatorKey.currentState != null) {
+      // Clear navigation stack and go to the detail page or just push it?
+      // Usually for notification taps, we just push the page.
+      App.navigatorKey.currentState!.push(
+        MaterialPageRoute(
+          builder: (context) => JobDetailScreen(printJob: job),
+        ),
+      );
+    } else {
+      print('Navigation failed: job is null or navigator state still null');
+    }
   }
 
   Future<void> _createNotificationChannel() async {
@@ -127,14 +166,38 @@ class PrintJobService {
     );
 
     try {
+      // Notification ID must be a 32-bit integer
+      final notificationId = (printJob.id ?? DateTime.now().millisecondsSinceEpoch) % 2147483647;
+      
       await _notifications.show(
-        printJob.id ?? DateTime.now().millisecondsSinceEpoch,
+        notificationId,
         'New Print Job',
         'Received ${printJob.jobSize} bytes from ${printJob.clientIp ?? "unknown"}',
         details,
+        payload: printJob.id?.toString(),
       );
     } catch (e) {
       print('Notification error: $e');
+    }
+  }
+
+  Future<void> forwardJobs(List<PrintJob> jobs) async {
+    if (jobs.isEmpty) return;
+
+    // Combine raw data into a single stream
+    List<int> combinedData = [];
+    for (var job in jobs) {
+      combinedData.addAll(job.rawData);
+    }
+
+    print('Forwarding ${jobs.length} jobs (${combinedData.length} bytes) to printer service');
+
+    // If a Star printer is connected, forward to it
+    if (_starService.connectedPrinter != null) {
+      await _starService.printRawData(combinedData, _starService.connectedPrinter!);
+    } else {
+      // In a real app, this would send to the configured output printer
+      // For now, we simulate success
     }
   }
 

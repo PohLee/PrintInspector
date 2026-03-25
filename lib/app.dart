@@ -5,9 +5,12 @@ import 'utils/constants.dart';
 class App extends StatelessWidget {
   const App({super.key});
 
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: AppConstants.appName,
       theme: ThemeData(
         useMaterial3: true,

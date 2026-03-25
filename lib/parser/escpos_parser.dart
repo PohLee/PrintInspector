@@ -22,6 +22,7 @@ enum PrintContentType {
   text,
   bitImage,
   rasterImage,
+  pageBreak,
 }
 
 class ESCPOSParser {
@@ -372,7 +373,7 @@ class ESCPOSParser {
         i++;
       } else if (byte == FF) {
         _flushCurrentLine();
-        _output.write('\f');
+        _contentBlocks.add(PrintContentBlock(type: PrintContentType.pageBreak));
         i++;
       } else if (byte == CAN) {
         _output.clear();
@@ -544,13 +545,8 @@ class ESCPOSParser {
       case 0x4C:
         return index + 4;
       case 0x56:
-        if (data[index + 2] == 0x00 || data[index + 2] == 0x01) {
-          _output.write('[PAPER CUT - FULL]\n');
-        } else if (data[index + 2] == 0x30 || data[index + 2] == 0x31) {
-          _output.write('[PAPER CUT - FULL]\n');
-        } else if (data[index + 2] == 0x32 || data[index + 2] == 0x33) {
-          _output.write('[PAPER CUT - PARTIAL]\n');
-        }
+        _flushCurrentLine();
+        _contentBlocks.add(PrintContentBlock(type: PrintContentType.pageBreak));
         return index + 3;
       case 0x57:
         return index + 4;

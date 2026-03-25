@@ -380,6 +380,21 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             block.imageData!,
             fit: BoxFit.contain,
           );
+        } else if (block.type == PrintContentType.pageBreak) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 24),
+            child: Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text('PAGE BREAK / STICKER SEPARATION', 
+                    style: TextStyle(fontSize: 10, color: Colors.grey.withOpacity(0.6), fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                ),
+                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+              ],
+            ),
+          );
         }
         return const SizedBox.shrink();
       }).toList(),
