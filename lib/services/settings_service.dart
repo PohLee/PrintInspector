@@ -16,7 +16,7 @@ class SettingsService {
     '_printer._tcp',
   };
   bool _autoStart = false;
-  String _printerName = 'ESC/POS Virtual Printer';
+  String _printerName = 'PrintInspector';
   int _pageWidth = 80;
   int _dpi = 203;
 
