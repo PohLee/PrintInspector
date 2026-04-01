@@ -5,7 +5,6 @@ import 'services/print_job_service.dart';
 import 'services/usb_service.dart';
 import 'services/settings_service.dart';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

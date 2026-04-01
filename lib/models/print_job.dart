@@ -149,7 +149,8 @@ class PrintJob {
     bool hasImage = false;
     for (final block in contentBlocks) {
       if (block.type == PrintContentType.text) hasText = true;
-      if (block.type == PrintContentType.bitImage || block.type == PrintContentType.rasterImage) hasImage = true;
+      if (block.type == PrintContentType.bitImage ||
+          block.type == PrintContentType.rasterImage) hasImage = true;
     }
     if (hasText && hasImage) return 'Mixed';
     if (hasImage) return 'Image';

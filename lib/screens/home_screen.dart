@@ -87,11 +87,12 @@ class _HomeScreenState extends State<HomeScreen> {
     await _settingsService.loadSettings();
     _printJobService.setPort(_settingsService.tcpPort);
     _mdnsService.setServiceTypes(_settingsService.mdnsServiceTypes);
-    
+
     if (_settingsService.autoStart && _settingsService.networkEnabled) {
       final success = await _printJobService.startServer();
       if (success && _settingsService.mdnsEnabled) {
-        await _mdnsService.startAdvertising(_settingsService.tcpPort, _settingsService.printerName);
+        await _mdnsService.startAdvertising(
+            _settingsService.tcpPort, _settingsService.printerName);
       }
       if (mounted) {
         setState(() {
@@ -123,7 +124,8 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       final success = await _printJobService.startServer();
       if (success && _settingsService.mdnsEnabled) {
-        await _mdnsService.startAdvertising(_settingsService.tcpPort, _settingsService.printerName);
+        await _mdnsService.startAdvertising(
+            _settingsService.tcpPort, _settingsService.printerName);
       }
       setState(() {
         _isServerRunning = success;
@@ -159,7 +161,8 @@ class _HomeScreenState extends State<HomeScreen> {
         slivers: [
           _buildSliverAppBar(),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _buildMainStatusCard(),
@@ -246,13 +249,18 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: (_isServerRunning ? AppConstants.accentColor : AppConstants.textSecondary).withOpacity(0.1),
+              color: (_isServerRunning
+                      ? AppConstants.accentColor
+                      : AppConstants.textSecondary)
+                  .withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               _statusMessage,
               style: TextStyle(
-                color: _isServerRunning ? AppConstants.accentColor : AppConstants.textSecondary,
+                color: _isServerRunning
+                    ? AppConstants.accentColor
+                    : AppConstants.textSecondary,
                 fontWeight: FontWeight.w500,
                 fontSize: 13,
               ),
@@ -270,19 +278,25 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (_isServerRunning)
-            _PulsingRing(color: AppConstants.accentColor),
+          if (_isServerRunning) _PulsingRing(color: AppConstants.accentColor),
           Container(
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: (_isServerRunning ? AppConstants.accentColor : AppConstants.errorColor).withOpacity(0.1),
+              color: (_isServerRunning
+                      ? AppConstants.accentColor
+                      : AppConstants.errorColor)
+                  .withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              _isServerRunning ? Icons.radar_rounded : Icons.power_settings_new_rounded,
+              _isServerRunning
+                  ? Icons.radar_rounded
+                  : Icons.power_settings_new_rounded,
               size: 40,
-              color: _isServerRunning ? AppConstants.accentColor : AppConstants.errorColor,
+              color: _isServerRunning
+                  ? AppConstants.accentColor
+                  : AppConstants.errorColor,
             ),
           ),
         ],
@@ -314,7 +328,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -363,9 +378,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         _buildConnectionCard(
           'Network Discovery',
-          _isServerRunning ? 'Active on ${_settingsService.tcpPort}' : 'Disabled',
+          _isServerRunning
+              ? 'Active on ${_settingsService.tcpPort}'
+              : 'Disabled',
           AppConstants.networkIcon,
-          _isServerRunning ? AppConstants.accentColor : AppConstants.textSecondary,
+          _isServerRunning
+              ? AppConstants.accentColor
+              : AppConstants.textSecondary,
         ),
         const SizedBox(height: 12),
         _buildUsbConnectionCard(),
@@ -374,13 +393,16 @@ class _HomeScreenState extends State<HomeScreen> {
           'mDNS Advertising',
           _settingsService.mdnsEnabled ? 'Enabled' : 'Disabled',
           Icons.broadcast_on_home_rounded,
-          _settingsService.mdnsEnabled ? AppConstants.primaryColor : AppConstants.textSecondary,
+          _settingsService.mdnsEnabled
+              ? AppConstants.primaryColor
+              : AppConstants.textSecondary,
         ),
       ],
     );
   }
 
-  Widget _buildConnectionCard(String title, String subtitle, IconData icon, Color color) {
+  Widget _buildConnectionCard(
+      String title, String subtitle, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -427,7 +449,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildUsbConnectionCard() {
     final bool isUsbActive = _isUsbListening;
-    final Color color = isUsbActive ? AppConstants.accentColor : AppConstants.textSecondary;
+    final Color color =
+        isUsbActive ? AppConstants.accentColor : AppConstants.textSecondary;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -446,7 +469,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(AppConstants.usbIcon, color: AppConstants.primaryColor, size: 20),
+                child: const Icon(AppConstants.usbIcon,
+                    color: AppConstants.primaryColor, size: 20),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -461,9 +485,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     Text(
-                      !_settingsService.usbEnabled 
-                        ? 'Disabled in settings' 
-                        : isUsbActive ? 'Listening' : 'Ready to scan',
+                      !_settingsService.usbEnabled
+                          ? 'Disabled in settings'
+                          : isUsbActive
+                              ? 'Listening'
+                              : 'Ready to scan',
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppConstants.textSecondary,
@@ -474,11 +500,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               if (_settingsService.usbEnabled)
                 IconButton(
-                  onPressed: isUsbActive 
-                    ? _stopUsbListening 
-                    : (_usbDevices.isNotEmpty ? () => _startUsbListening(_usbDevices.first) : _loadUsbDevices),
-                  icon: Icon(isUsbActive ? Icons.stop_circle_rounded : Icons.play_circle_rounded),
-                  color: isUsbActive ? AppConstants.errorColor : AppConstants.accentColor,
+                  onPressed: isUsbActive
+                      ? _stopUsbListening
+                      : (_usbDevices.isNotEmpty
+                          ? () => _startUsbListening(_usbDevices.first)
+                          : _loadUsbDevices),
+                  icon: Icon(isUsbActive
+                      ? Icons.stop_circle_rounded
+                      : Icons.play_circle_rounded),
+                  color: isUsbActive
+                      ? AppConstants.errorColor
+                      : AppConstants.accentColor,
                   iconSize: 32,
                 ),
             ],
@@ -489,12 +521,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.only(left: 48, bottom: 8),
                   child: Row(
                     children: [
-                      const Icon(Icons.usb_rounded, size: 14, color: AppConstants.textSecondary),
+                      const Icon(Icons.usb_rounded,
+                          size: 14, color: AppConstants.textSecondary),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           device.productName ?? device.deviceName,
-                          style: const TextStyle(fontSize: 12, color: AppConstants.textSecondary),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppConstants.textSecondary),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -508,31 +542,43 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildServerToggleButton() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: 200,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _toggleServer,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _isServerRunning ? AppConstants.errorColor : AppConstants.accentColor,
-          foregroundColor: Colors.white,
-          elevation: 8,
-          shadowColor: (_isServerRunning ? AppConstants.errorColor : AppConstants.accentColor).withOpacity(0.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(_isServerRunning ? Icons.stop_rounded : Icons.play_arrow_rounded),
-            const SizedBox(width: 12),
-            Text(
-              _isServerRunning ? 'STOP SERVER' : 'START SERVER',
-              style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+    return Semantics(
+      label: _isServerRunning ? 'Stop printer server' : 'Start printer server',
+      button: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: 200,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: _toggleServer,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isServerRunning
+                ? AppConstants.errorColor
+                : AppConstants.accentColor,
+            foregroundColor: Colors.white,
+            elevation: 8,
+            shadowColor: (_isServerRunning
+                    ? AppConstants.errorColor
+                    : AppConstants.accentColor)
+                .withOpacity(0.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_isServerRunning
+                  ? Icons.stop_rounded
+                  : Icons.play_arrow_rounded),
+              const SizedBox(width: 12),
+              Text(
+                _isServerRunning ? 'STOP SERVER' : 'START SERVER',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -554,7 +600,8 @@ class _PulsingRing extends StatefulWidget {
   State<_PulsingRing> createState() => _PulsingRingState();
 }
 
-class _PulsingRingState extends State<_PulsingRing> with SingleTickerProviderStateMixin {
+class _PulsingRingState extends State<_PulsingRing>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
