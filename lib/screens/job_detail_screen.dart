@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/print_job.dart';
 import '../parser/escpos_parser.dart';
 import '../utils/constants.dart';
+import '../utils/print_job_exporter.dart';
 
 class JobDetailScreen extends StatefulWidget {
   final PrintJob printJob;
@@ -20,6 +21,8 @@ class _JobDetailScreenState extends State<JobDetailScreen>
   late TransformationController _transformationController;
   double _currentScale = 0.8;
   final GlobalKey _viewerKey = GlobalKey();
+  final GlobalKey _exportKey = GlobalKey();
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -79,6 +82,62 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
     );
   }
 
+  Future<void> _copyAsImage() async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.copyToClipboard(_exportKey);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recipe copied as image to clipboard')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error copying image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _saveAsImage() async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.saveAsImage(
+        _exportKey, 
+        'PrintJob_${widget.printJob.id ?? widget.printJob.timestamp.millisecondsSinceEpoch}'
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _saveAsPdf() async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.saveAsPdf(
+        widget.printJob,
+        'PrintJob_${widget.printJob.id ?? widget.printJob.timestamp.millisecondsSinceEpoch}'
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving PDF: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   void _updateZoom(double delta) {
     final RenderBox? renderBox =
         _viewerKey.currentContext?.findRenderObject() as RenderBox?;
@@ -122,7 +181,39 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
           IconButton(
             icon: const Icon(Icons.share_rounded),
             onPressed: _shareContent,
-            tooltip: 'Share',
+            tooltip: 'Share Details',
+          ),
+          PopupMenuButton<String>(
+            icon: _isExporting 
+              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.download_rounded),
+            tooltip: 'Save rendered job',
+            onSelected: (value) {
+              if (value == 'image') _saveAsImage();
+              if (value == 'pdf') _saveAsPdf();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'image',
+                child: Row(
+                  children: [
+                    Icon(Icons.image_rounded, size: 20),
+                    SizedBox(width: 12),
+                    Text('Save as Image'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf_rounded, size: 20),
+                    SizedBox(width: 12),
+                    Text('Save as PDF'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
         bottom: TabBar(
@@ -333,9 +424,11 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
               children: [
                 FloatingActionButton.extended(
                   heroTag: 'copy_text',
-                  onPressed: _copyText,
-                  icon: const Icon(Icons.copy_rounded),
-                  label: const Text('Copy'),
+                  onPressed: _copyAsImage,
+                  icon: _isExporting 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor))
+                    : const Icon(Icons.copy_rounded),
+                  label: const Text('Copy Image'),
                   backgroundColor: AppConstants.surfaceColor,
                   foregroundColor: AppConstants.primaryColor,
                   elevation: 4,

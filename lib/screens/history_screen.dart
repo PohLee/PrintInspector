@@ -7,6 +7,7 @@ import '../services/print_job_service.dart';
 import '../models/print_job.dart';
 import '../parser/escpos_parser.dart';
 import '../utils/constants.dart';
+import '../utils/print_job_exporter.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -28,6 +29,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   late TransformationController _transformationController;
   double _currentScale = 0.8;
   final GlobalKey _viewerKey = GlobalKey();
+  final GlobalKey _exportKey = GlobalKey();
+  bool _isExporting = false;
 
   // Multi-selection state
   bool _isSelectionMode = false;
@@ -339,6 +342,62 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  Future<void> _copyAsImage() async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.copyToClipboard(_exportKey);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recipe copied as image to clipboard')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error copying image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _saveAsImage(PrintJob job) async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.saveAsImage(
+        _exportKey, 
+        'PrintJob_${job.id ?? job.timestamp.millisecondsSinceEpoch}'
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _saveAsPdf(PrintJob job) async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.saveAsPdf(
+        job,
+        'PrintJob_${job.id ?? job.timestamp.millisecondsSinceEpoch}'
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving PDF: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   void _updateZoom(double delta) {
     final RenderBox? renderBox =
         _viewerKey.currentContext?.findRenderObject() as RenderBox?;
@@ -607,6 +666,39 @@ class _HistoryScreenState extends State<HistoryScreen> {
               color: AppConstants.primaryColor),
           tooltip: 'Job Info',
         ),
+        const SizedBox(width: 8),
+        PopupMenuButton<String>(
+          icon: _isExporting 
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.download_rounded, color: AppConstants.primaryColor),
+          tooltip: 'Save rendered job',
+          onSelected: (value) {
+            if (value == 'image') _saveAsImage(job);
+            if (value == 'pdf') _saveAsPdf(job);
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'image',
+              child: Row(
+                children: [
+                  Icon(Icons.image_rounded, size: 20),
+                  SizedBox(width: 12),
+                  Text('Save as Image'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'pdf',
+              child: Row(
+                children: [
+                  Icon(Icons.picture_as_pdf_rounded, size: 20),
+                  SizedBox(width: 12),
+                  Text('Save as PDF'),
+                ],
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -714,9 +806,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
               children: [
                 FloatingActionButton.extended(
                   heroTag: 'history_copy_text',
-                  onPressed: () => _copyText(job),
-                  icon: const Icon(Icons.copy_rounded),
-                  label: const Text('Copy'),
+                  onPressed: _copyAsImage,
+                  icon: _isExporting 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor))
+                    : const Icon(Icons.copy_rounded),
+                  label: const Text('Copy Image'),
                   backgroundColor: AppConstants.surfaceColor,
                   foregroundColor: AppConstants.primaryColor,
                   elevation: 4,
