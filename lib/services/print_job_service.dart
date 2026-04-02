@@ -19,7 +19,8 @@ class PrintJobService {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
   final UsbService _usbService = UsbService();
-  final StreamController<PrintJob> _allJobsController = StreamController<PrintJob>.broadcast();
+  final StreamController<PrintJob> _allJobsController =
+      StreamController<PrintJob>.broadcast();
 
   Stream<PrintJob> get onPrintJob => _allJobsController.stream;
   bool get isServerRunning => _printerServer.isRunning;
@@ -46,7 +47,8 @@ class PrintJobService {
     );
 
     // Check if the app was launched from a notification
-    final launchDetails = await _notifications.getNotificationAppLaunchDetails();
+    final launchDetails =
+        await _notifications.getNotificationAppLaunchDetails();
     if (launchDetails?.didNotificationLaunchApp ?? false) {
       if (launchDetails?.notificationResponse != null) {
         _onNotificationTapped(launchDetails!.notificationResponse!);
@@ -65,7 +67,7 @@ class PrintJobService {
     if (payload == null) return;
 
     print('Notification tapped: $payload');
-    
+
     final id = int.tryParse(payload);
     if (id == null) return;
 
@@ -167,8 +169,9 @@ class PrintJobService {
 
     try {
       // Notification ID must be a 32-bit integer
-      final notificationId = (printJob.id ?? DateTime.now().millisecondsSinceEpoch) % 2147483647;
-      
+      final notificationId =
+          (printJob.id ?? DateTime.now().millisecondsSinceEpoch) % 2147483647;
+
       await _notifications.show(
         notificationId,
         'New Print Job',
@@ -190,11 +193,13 @@ class PrintJobService {
       combinedData.addAll(job.rawData);
     }
 
-    print('Forwarding ${jobs.length} jobs (${combinedData.length} bytes) to printer service');
+    print(
+        'Forwarding ${jobs.length} jobs (${combinedData.length} bytes) to printer service');
 
     // If a Star printer is connected, forward to it
     if (_starService.connectedPrinter != null) {
-      await _starService.printRawData(combinedData, _starService.connectedPrinter!);
+      await _starService.printRawData(
+          combinedData, _starService.connectedPrinter!);
     } else {
       // In a real app, this would send to the configured output printer
       // For now, we simulate success

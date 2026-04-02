@@ -80,12 +80,13 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
   }
 
   void _updateZoom(double delta) {
-    final RenderBox? renderBox = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _viewerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    
+
     final width = renderBox.size.width;
     final currentY = _transformationController.value.getTranslation().y;
-    
+
     setState(() {
       _currentScale = (_currentScale + delta).clamp(0.1, 4.0);
       _transformationController.value = Matrix4.identity()
@@ -95,9 +96,10 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
   }
 
   void _resetZoom() {
-    final RenderBox? renderBox = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _viewerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    
+
     final width = renderBox.size.width;
     setState(() {
       _currentScale = 0.8;
@@ -184,7 +186,8 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             ],
           ),
           const SizedBox(height: 12),
-          _buildMetadataRow('Timestamp', dateFormat.format(widget.printJob.timestamp)),
+          _buildMetadataRow(
+              'Timestamp', dateFormat.format(widget.printJob.timestamp)),
           _buildMetadataRow('Size', '${widget.printJob.jobSize} bytes'),
           if (widget.printJob.clientIp != null)
             _buildMetadataRow('Client IP', widget.printJob.clientIp!),
@@ -261,7 +264,7 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
               '${(_currentScale * 100).toInt()}%',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 12, 
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: AppConstants.primaryColor,
               ),
@@ -293,7 +296,8 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             builder: (context, constraints) {
               return InteractiveViewer(
                 transformationController: _transformationController,
-                boundaryMargin: const EdgeInsets.symmetric(horizontal: 5000, vertical: 1000),
+                boundaryMargin: const EdgeInsets.symmetric(
+                    horizontal: 5000, vertical: 1000),
                 minScale: 0.1,
                 maxScale: 4.0,
                 constrained: false,
@@ -312,7 +316,8 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
                     ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 32, horizontal: 24),
                     child: _buildContent(),
                   ),
                 ),
@@ -385,13 +390,21 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             margin: const EdgeInsets.symmetric(vertical: 24),
             child: Row(
               children: [
-                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+                Expanded(
+                    child: Divider(
+                        color: Colors.grey.withOpacity(0.3), thickness: 1)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                  child: Text('PAGE BREAK / STICKER SEPARATION', 
-                    style: TextStyle(fontSize: 10, color: Colors.grey.withOpacity(0.6), fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                  child: Text('PAGE BREAK / STICKER SEPARATION',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.withOpacity(0.6),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1)),
                 ),
-                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+                Expanded(
+                    child: Divider(
+                        color: Colors.grey.withOpacity(0.3), thickness: 1)),
               ],
             ),
           );
