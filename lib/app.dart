@@ -5,7 +5,8 @@ import 'utils/constants.dart';
 class App extends StatelessWidget {
   const App({super.key});
 
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +23,7 @@ class App extends StatelessWidget {
           centerTitle: true,
           elevation: 0,
         ),
-        cardTheme: CardThemeData(
+        cardTheme: CardTheme(
           elevation: AppConstants.cardElevation,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.borderRadius),
@@ -39,7 +40,7 @@ class App extends StatelessWidget {
           centerTitle: true,
           elevation: 0,
         ),
-        cardTheme: CardThemeData(
+        cardTheme: CardTheme(
           elevation: AppConstants.cardElevation,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.borderRadius),

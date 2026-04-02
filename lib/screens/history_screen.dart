@@ -7,6 +7,7 @@ import '../services/print_job_service.dart';
 import '../models/print_job.dart';
 import '../parser/escpos_parser.dart';
 import '../utils/constants.dart';
+import '../utils/print_job_exporter.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -23,11 +24,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  
+
   PrintJob? _selectedJob;
   late TransformationController _transformationController;
   double _currentScale = 0.8;
   final GlobalKey _viewerKey = GlobalKey();
+  final GlobalKey _exportKey = GlobalKey();
+  bool _isExporting = false;
 
   // Multi-selection state
   bool _isSelectionMode = false;
@@ -40,7 +43,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _transformationController.value = Matrix4.identity()..scale(_currentScale);
     _loadPrintJobs();
     _listenToPrintJobs();
-    
+
     _transformationController.addListener(() {
       final newScale = _transformationController.value.getMaxScaleOnAxis();
       if ((newScale - _currentScale).abs() > 0.01) {
@@ -80,12 +83,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() {
       _printJobs = jobs;
       _isLoading = false;
-      
+
       if (newSelectedJob != null) {
         _selectedJob = newSelectedJob;
       } else if (_selectedJob != null) {
         // Refresh selected job if it still exists
-        final stillExists = jobs.where((j) => j.id == _selectedJob!.id).toList();
+        final stillExists =
+            jobs.where((j) => j.id == _selectedJob!.id).toList();
         if (stillExists.isNotEmpty) {
           _selectedJob = stillExists.first;
         } else {
@@ -172,7 +176,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Selected Jobs'),
-        content: Text('Are you sure you want to delete ${_selectedIds.length} print jobs?'),
+        content: Text(
+            'Are you sure you want to delete ${_selectedIds.length} print jobs?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -200,18 +205,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _forwardSelectedJobs() async {
-    final jobsToForward = _printJobs.where((j) => j.id != null && _selectedIds.contains(j.id)).toList();
+    final jobsToForward = _printJobs
+        .where((j) => j.id != null && _selectedIds.contains(j.id))
+        .toList();
     // Sort by timestamp or original index if needed, here we assume current order
-    jobsToForward.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Most recent last for combined? 
-    // Actually usually you want oldest first if you select a range. 
+    jobsToForward.sort((a, b) =>
+        b.timestamp.compareTo(a.timestamp)); // Most recent last for combined?
+    // Actually usually you want oldest first if you select a range.
     // Let's sort by ID or timestamp ASC
     jobsToForward.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
     await _printJobService.forwardJobs(jobsToForward);
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Forwarded ${jobsToForward.length} stickers to printer')),
+        SnackBar(
+            content:
+                Text('Forwarded ${jobsToForward.length} stickers to printer')),
       );
       setState(() {
         _selectedIds.clear();
@@ -264,7 +274,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const SizedBox(height: 16),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(_getConnectionIcon(job.connectionType), color: colorScheme.primary),
+            leading: Icon(_getConnectionIcon(job.connectionType),
+                color: colorScheme.primary),
             title: const Text('Connection'),
             subtitle: Text(job.connectionTypeDisplay),
           ),
@@ -331,13 +342,70 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  Future<void> _copyAsImage() async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.copyToClipboard(_exportKey);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recipe copied as image to clipboard')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error copying image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _saveAsImage(PrintJob job) async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.saveAsImage(
+        _exportKey, 
+        'PrintJob_${job.id ?? job.timestamp.millisecondsSinceEpoch}'
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _saveAsPdf(PrintJob job) async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.saveAsPdf(
+        job,
+        'PrintJob_${job.id ?? job.timestamp.millisecondsSinceEpoch}'
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving PDF: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   void _updateZoom(double delta) {
-    final RenderBox? renderBox = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _viewerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    
+
     final width = renderBox.size.width;
     final currentY = _transformationController.value.getTranslation().y;
-    
+
     setState(() {
       _currentScale = (_currentScale + delta).clamp(0.1, 4.0);
       _transformationController.value = Matrix4.identity()
@@ -347,9 +415,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   void _resetZoom() {
-    final RenderBox? renderBox = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _viewerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    
+
     final width = renderBox.size.width;
     setState(() {
       _currentScale = 0.8;
@@ -364,21 +433,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Scaffold(
       backgroundColor: AppConstants.backgroundColor,
       appBar: AppBar(
-        title: _isSelectionMode 
-          ? Text('${_selectedIds.length} Selected')
-          : const Text('Print History'),
+        title: _isSelectionMode
+            ? Text('${_selectedIds.length} Selected')
+            : const Text('Print History'),
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: AppConstants.textPrimary,
-        leading: _isSelectionMode 
-          ? IconButton(
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => setState(() { 
-                _isSelectionMode = false; 
-                _selectedIds.clear(); 
-              }),
-            )
-          : null,
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => setState(() {
+                  _isSelectionMode = false;
+                  _selectedIds.clear();
+                }),
+              )
+            : null,
         actions: [
           if (_isSelectionMode) ...[
             IconButton(
@@ -402,7 +471,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isTablet = constraints.maxWidth >= 600;
-          
+
           if (isTablet) {
             return Row(
               children: [
@@ -423,31 +492,40 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
   }
-  
+
   Widget _buildMobileView() {
     if (_selectedJob == null) {
       return _buildSideList();
     }
-    
+
     return Column(
       children: [
         Container(
-          color: AppConstants.surfaceColor,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            children: [
-              IconButton(onPressed: () {
-                setState(() { _selectedJob = null; });
-              }, icon: const Icon(Icons.arrow_back_rounded)),
-              const Expanded(child: Text("Job Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppConstants.textPrimary))),
-              IconButton(
-                icon: const Icon(Icons.info_outline_rounded),
-                onPressed: () => _showJobInfoBottomSheet(context, _selectedJob!),
-                tooltip: 'Job Info',
-              ),
-            ],
-          )
-        ),
+            color: AppConstants.surfaceColor,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              children: [
+                IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedJob = null;
+                      });
+                    },
+                    icon: const Icon(Icons.arrow_back_rounded)),
+                const Expanded(
+                    child: Text("Job Details",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: AppConstants.textPrimary))),
+                IconButton(
+                  icon: const Icon(Icons.info_outline_rounded),
+                  onPressed: () =>
+                      _showJobInfoBottomSheet(context, _selectedJob!),
+                  tooltip: 'Job Info',
+                ),
+              ],
+            )),
         const Divider(height: 1),
         Expanded(child: _buildJobContent(_selectedJob!)),
       ],
@@ -464,13 +542,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
             style: const TextStyle(color: AppConstants.textPrimary),
             decoration: InputDecoration(
               hintText: 'Search print jobs...',
-              prefixIcon: const Icon(Icons.search_rounded, color: AppConstants.primaryColor),
+              prefixIcon: const Icon(Icons.search_rounded,
+                  color: AppConstants.primaryColor),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear_rounded),
                       onPressed: () {
                         _searchController.clear();
-                        setState(() { _searchQuery = ''; });
+                        setState(() {
+                          _searchQuery = '';
+                        });
                         _loadPrintJobs();
                       },
                     )
@@ -483,7 +564,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               fillColor: AppConstants.surfaceColor,
             ),
             onChanged: (q) {
-              setState(() { _searchQuery = q; });
+              setState(() {
+                _searchQuery = q;
+              });
               _loadPrintJobs();
             },
           ),
@@ -500,7 +583,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         itemBuilder: (context, index) {
                           final job = _printJobs[index];
-                          final isSelected = MediaQuery.of(context).size.width >= 600 && _selectedJob?.id == job.id;
+                          final isSelected =
+                              MediaQuery.of(context).size.width >= 600 &&
+                                  _selectedJob?.id == job.id;
                           return _buildListTileCard(job, isSelected);
                         },
                       ),
@@ -516,15 +601,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
     if (_printJobs.isEmpty || _selectedJob == null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.print_rounded, size: 80, color: AppConstants.textSecondary.withOpacity(0.2)),
-            const SizedBox(height: 16),
-            const Text('Select a print job to view details', style: TextStyle(color: AppConstants.textSecondary))
-          ],
-        )
-      );
+          child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.print_rounded,
+              size: 80, color: AppConstants.textSecondary.withOpacity(0.2)),
+          const SizedBox(height: 16),
+          const Text('Select a print job to view details',
+              style: TextStyle(color: AppConstants.textSecondary))
+        ],
+      ));
     }
 
     return Column(
@@ -533,16 +619,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           decoration: BoxDecoration(
             color: AppConstants.surfaceColor,
-            border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.05))),
+            border: Border(
+                bottom: BorderSide(color: Colors.black.withOpacity(0.05))),
           ),
           child: Row(
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Print Sample', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppConstants.textPrimary)),
+                  const Text('Print Sample',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          color: AppConstants.textPrimary)),
                   const SizedBox(height: 4),
-                  Text(DateFormat('MMM dd, yyyy HH:mm:ss').format(_selectedJob!.timestamp), style: const TextStyle(color: AppConstants.textSecondary, fontSize: 13)),
+                  Text(
+                      DateFormat('MMM dd, yyyy HH:mm:ss')
+                          .format(_selectedJob!.timestamp),
+                      style: const TextStyle(
+                          color: AppConstants.textSecondary, fontSize: 13)),
                 ],
               ),
               const Spacer(),
@@ -560,14 +655,49 @@ class _HistoryScreenState extends State<HistoryScreen> {
       children: [
         IconButton(
           onPressed: () => _copyText(job),
-          icon: const Icon(Icons.copy_rounded, color: AppConstants.primaryColor),
+          icon:
+              const Icon(Icons.copy_rounded, color: AppConstants.primaryColor),
           tooltip: 'Copy Text',
         ),
         const SizedBox(width: 8),
         IconButton(
           onPressed: () => _showJobInfoBottomSheet(context, job),
-          icon: const Icon(Icons.info_outline_rounded, color: AppConstants.primaryColor),
+          icon: const Icon(Icons.info_outline_rounded,
+              color: AppConstants.primaryColor),
           tooltip: 'Job Info',
+        ),
+        const SizedBox(width: 8),
+        PopupMenuButton<String>(
+          icon: _isExporting 
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.download_rounded, color: AppConstants.primaryColor),
+          tooltip: 'Save rendered job',
+          onSelected: (value) {
+            if (value == 'image') _saveAsImage(job);
+            if (value == 'pdf') _saveAsPdf(job);
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'image',
+              child: Row(
+                children: [
+                  Icon(Icons.image_rounded, size: 20),
+                  SizedBox(width: 12),
+                  Text('Save as Image'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'pdf',
+              child: Row(
+                children: [
+                  Icon(Icons.picture_as_pdf_rounded, size: 20),
+                  SizedBox(width: 12),
+                  Text('Save as PDF'),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -603,7 +733,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               '${(_currentScale * 100).toInt()}%',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 11, 
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: AppConstants.primaryColor,
               ),
@@ -639,7 +769,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             builder: (context, constraints) {
               return InteractiveViewer(
                 transformationController: _transformationController,
-                boundaryMargin: const EdgeInsets.symmetric(horizontal: 5000, vertical: 1000),
+                boundaryMargin: const EdgeInsets.symmetric(
+                    horizontal: 5000, vertical: 1000),
                 minScale: 0.1,
                 maxScale: 4.0,
                 constrained: false,
@@ -658,7 +789,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 32, horizontal: 24),
                     child: _buildPrintoutContent(job),
                   ),
                 ),
@@ -674,9 +806,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
               children: [
                 FloatingActionButton.extended(
                   heroTag: 'history_copy_text',
-                  onPressed: () => _copyText(job),
-                  icon: const Icon(Icons.copy_rounded),
-                  label: const Text('Copy'),
+                  onPressed: _copyAsImage,
+                  icon: _isExporting 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor))
+                    : const Icon(Icons.copy_rounded),
+                  label: const Text('Copy Image'),
                   backgroundColor: AppConstants.surfaceColor,
                   foregroundColor: AppConstants.primaryColor,
                   elevation: 4,
@@ -696,7 +830,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (contentBlocks.isEmpty) {
       return SelectableText(
         job.renderedText.isEmpty ? '[Empty print job]' : job.renderedText,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5, color: Colors.black),
+        style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            height: 1.5,
+            color: Colors.black),
       );
     }
 
@@ -706,9 +844,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
         if (block.type == PrintContentType.text && block.text != null) {
           return SelectableText(
             block.text!,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5, color: Colors.black),
+            style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                height: 1.5,
+                color: Colors.black),
           );
-        } else if ((block.type == PrintContentType.bitImage || block.type == PrintContentType.rasterImage) && block.imageData != null) {
+        } else if ((block.type == PrintContentType.bitImage ||
+                block.type == PrintContentType.rasterImage) &&
+            block.imageData != null) {
           return Image.memory(
             block.imageData!,
             fit: BoxFit.contain,
@@ -720,12 +864,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
             margin: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               children: [
-                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+                Expanded(
+                    child: Divider(
+                        color: Colors.grey.withOpacity(0.3), thickness: 1)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Text('PAGE BREAK / CUT', style: TextStyle(fontSize: 9, color: Colors.grey.withOpacity(0.6), fontWeight: FontWeight.bold)),
+                  child: Text('PAGE BREAK / CUT',
+                      style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey.withOpacity(0.6),
+                          fontWeight: FontWeight.bold)),
                 ),
-                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+                Expanded(
+                    child: Divider(
+                        color: Colors.grey.withOpacity(0.3), thickness: 1)),
               ],
             ),
           );
@@ -744,7 +896,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         color: AppConstants.surfaceColor,
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
         border: Border.all(
-          color: isSelected ? AppConstants.primaryColor : Colors.black.withOpacity(0.05),
+          color: isSelected
+              ? AppConstants.primaryColor
+              : Colors.black.withOpacity(0.05),
           width: isSelected ? 1.5 : 1,
         ),
       ),
@@ -776,7 +930,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         child: Checkbox(
                           value: _selectedIds.contains(job.id),
                           onChanged: (_) => _toggleSelection(job.id!),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6)),
                           activeColor: AppConstants.primaryColor,
                         ),
                       ),
@@ -784,13 +939,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: (isSelected ? AppConstants.primaryColor : AppConstants.textSecondary).withOpacity(0.1),
+                      color: (isSelected
+                              ? AppConstants.primaryColor
+                              : AppConstants.textSecondary)
+                          .withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       _getConnectionIcon(job.connectionType),
                       size: 20,
-                      color: isSelected ? AppConstants.primaryColor : AppConstants.textSecondary,
+                      color: isSelected
+                          ? AppConstants.primaryColor
+                          : AppConstants.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -803,7 +963,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: isSelected ? AppConstants.primaryColor : AppConstants.textPrimary,
+                            color: isSelected
+                                ? AppConstants.primaryColor
+                                : AppConstants.textPrimary,
                           ),
                         ),
                         Text(
@@ -822,11 +984,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(Icons.straighten_rounded, size: 14, color: AppConstants.textSecondary),
+                  const Icon(Icons.straighten_rounded,
+                      size: 14, color: AppConstants.textSecondary),
                   const SizedBox(width: 4),
                   Text(
                     '${job.jobSize} bytes',
-                    style: const TextStyle(fontSize: 11, color: AppConstants.textSecondary),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppConstants.textSecondary),
                   ),
                   const Spacer(),
                   if (job.id != null)
@@ -836,6 +1000,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       color: AppConstants.errorColor.withOpacity(0.7),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
+                      tooltip: 'Delete print job',
                     ),
                 ],
               ),
@@ -845,12 +1010,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
   }
-  
+
   Widget _buildRenderTypeChip(PrintJob job, bool isSelected) {
     IconData icon = Icons.text_snippet_rounded;
-    Color chipColor = (isSelected ? AppConstants.primaryColor : AppConstants.textSecondary).withOpacity(0.1);
-    Color textColor = isSelected ? AppConstants.primaryColor : AppConstants.textSecondary;
-    
+    Color chipColor =
+        (isSelected ? AppConstants.primaryColor : AppConstants.textSecondary)
+            .withOpacity(0.1);
+    Color textColor =
+        isSelected ? AppConstants.primaryColor : AppConstants.textSecondary;
+
     if (job.renderType == 'Image') {
       icon = Icons.image_rounded;
     }
@@ -871,7 +1039,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const SizedBox(width: 4),
           Text(
             job.renderType,
-            style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                color: textColor, fontSize: 10, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -879,15 +1048,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildEmptyState() {
+    final bool isSearching = _searchQuery.isNotEmpty;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.print_disabled_rounded, size: 64, color: AppConstants.textSecondary.withOpacity(0.2)),
+          Icon(
+            isSearching
+                ? Icons.search_off_rounded
+                : Icons.print_disabled_rounded,
+            size: 64,
+            color: AppConstants.textSecondary.withOpacity(0.2),
+          ),
           const SizedBox(height: 16),
-          const Text('No print jobs yet', style: TextStyle(color: AppConstants.textSecondary, fontWeight: FontWeight.bold)),
+          Text(
+            isSearching ? 'No results found' : 'No print jobs yet',
+            style: const TextStyle(
+                color: AppConstants.textSecondary, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          const Text('Incoming prints will appear here', style: TextStyle(color: AppConstants.textSecondary, fontSize: 13)),
+          Text(
+            isSearching
+                ? 'Try adjusting your search query'
+                : 'Incoming prints will appear here',
+            style: const TextStyle(
+                color: AppConstants.textSecondary, fontSize: 13),
+          ),
         ],
       ),
     );

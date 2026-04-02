@@ -299,7 +299,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 child: const Text(
                   'SAVE SETTINGS',
-                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, letterSpacing: 1.2),
                 ),
               ),
             ),
@@ -365,7 +366,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppConstants.primaryColor, width: 1.5),
+            borderSide:
+                const BorderSide(color: AppConstants.primaryColor, width: 1.5),
           ),
           filled: true,
           fillColor: Colors.grey[50],
@@ -376,20 +378,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildPortSetting() {
     return ListTile(
-      leading: const Icon(Icons.settings_ethernet_rounded, color: AppConstants.primaryColor),
-      title: const Text('TCP Port', style: TextStyle(color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
-      subtitle: Text('${_settingsService.tcpPort}', style: const TextStyle(color: AppConstants.textSecondary)),
-      trailing: const Icon(Icons.chevron_right_rounded, color: AppConstants.textSecondary),
+      leading: const Icon(Icons.settings_ethernet_rounded,
+          color: AppConstants.primaryColor),
+      title: const Text('TCP Port',
+          style: TextStyle(
+              color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
+      subtitle: Text('${_settingsService.tcpPort}',
+          style: const TextStyle(color: AppConstants.textSecondary)),
+      trailing: const Icon(Icons.chevron_right_rounded,
+          color: AppConstants.textSecondary),
       onTap: _showPortPicker,
     );
   }
 
   Widget _buildMDNSSetting() {
     return ListTile(
-      leading: const Icon(Icons.broadcast_on_home_rounded, color: AppConstants.primaryColor),
-      title: const Text('mDNS Service Types', style: TextStyle(color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
-      subtitle: Text('${_settingsService.mdnsServiceTypes.length} enabled', style: const TextStyle(color: AppConstants.textSecondary)),
-      trailing: const Icon(Icons.chevron_right_rounded, color: AppConstants.textSecondary),
+      leading: const Icon(Icons.broadcast_on_home_rounded,
+          color: AppConstants.primaryColor),
+      title: const Text('mDNS Service Types',
+          style: TextStyle(
+              color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
+      subtitle: Text('${_settingsService.mdnsServiceTypes.length} enabled',
+          style: const TextStyle(color: AppConstants.textSecondary)),
+      trailing: const Icon(Icons.chevron_right_rounded,
+          color: AppConstants.textSecondary),
       onTap: _showMDNSServicePicker,
     );
   }
@@ -404,8 +416,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     return SwitchListTile(
       secondary: Icon(icon, color: AppConstants.primaryColor),
-      title: Text(title, style: const TextStyle(color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: const TextStyle(color: AppConstants.textSecondary, fontSize: 12)),
+      title: Text(title,
+          style: const TextStyle(
+              color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle,
+          style:
+              const TextStyle(color: AppConstants.textSecondary, fontSize: 12)),
       value: value,
       activeColor: activeColor,
       onChanged: onChanged,
@@ -419,7 +435,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     return ListTile(
       leading: Icon(icon, color: AppConstants.textSecondary.withOpacity(0.7)),
-      title: Text(title, style: const TextStyle(color: AppConstants.textPrimary)),
+      title:
+          Text(title, style: const TextStyle(color: AppConstants.textPrimary)),
       trailing: Text(
         value,
         style: const TextStyle(

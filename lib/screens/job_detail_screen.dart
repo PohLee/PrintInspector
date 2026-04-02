@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/print_job.dart';
 import '../parser/escpos_parser.dart';
 import '../utils/constants.dart';
+import '../utils/print_job_exporter.dart';
 
 class JobDetailScreen extends StatefulWidget {
   final PrintJob printJob;
@@ -20,6 +21,8 @@ class _JobDetailScreenState extends State<JobDetailScreen>
   late TransformationController _transformationController;
   double _currentScale = 0.8;
   final GlobalKey _viewerKey = GlobalKey();
+  final GlobalKey _exportKey = GlobalKey();
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -79,13 +82,70 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
     );
   }
 
+  Future<void> _copyAsImage() async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.copyToClipboard(_exportKey);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recipe copied as image to clipboard')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error copying image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _saveAsImage() async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.saveAsImage(
+        _exportKey, 
+        'PrintJob_${widget.printJob.id ?? widget.printJob.timestamp.millisecondsSinceEpoch}'
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _saveAsPdf() async {
+    setState(() => _isExporting = true);
+    try {
+      await PrintJobExporter.saveAsPdf(
+        widget.printJob,
+        'PrintJob_${widget.printJob.id ?? widget.printJob.timestamp.millisecondsSinceEpoch}'
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving PDF: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   void _updateZoom(double delta) {
-    final RenderBox? renderBox = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _viewerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    
+
     final width = renderBox.size.width;
     final currentY = _transformationController.value.getTranslation().y;
-    
+
     setState(() {
       _currentScale = (_currentScale + delta).clamp(0.1, 4.0);
       _transformationController.value = Matrix4.identity()
@@ -95,9 +155,10 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
   }
 
   void _resetZoom() {
-    final RenderBox? renderBox = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _viewerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    
+
     final width = renderBox.size.width;
     setState(() {
       _currentScale = 0.8;
@@ -120,7 +181,39 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
           IconButton(
             icon: const Icon(Icons.share_rounded),
             onPressed: _shareContent,
-            tooltip: 'Share',
+            tooltip: 'Share Details',
+          ),
+          PopupMenuButton<String>(
+            icon: _isExporting 
+              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.download_rounded),
+            tooltip: 'Save rendered job',
+            onSelected: (value) {
+              if (value == 'image') _saveAsImage();
+              if (value == 'pdf') _saveAsPdf();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'image',
+                child: Row(
+                  children: [
+                    Icon(Icons.image_rounded, size: 20),
+                    SizedBox(width: 12),
+                    Text('Save as Image'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf_rounded, size: 20),
+                    SizedBox(width: 12),
+                    Text('Save as PDF'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
         bottom: TabBar(
@@ -184,7 +277,8 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             ],
           ),
           const SizedBox(height: 12),
-          _buildMetadataRow('Timestamp', dateFormat.format(widget.printJob.timestamp)),
+          _buildMetadataRow(
+              'Timestamp', dateFormat.format(widget.printJob.timestamp)),
           _buildMetadataRow('Size', '${widget.printJob.jobSize} bytes'),
           if (widget.printJob.clientIp != null)
             _buildMetadataRow('Client IP', widget.printJob.clientIp!),
@@ -261,7 +355,7 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
               '${(_currentScale * 100).toInt()}%',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 12, 
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: AppConstants.primaryColor,
               ),
@@ -293,7 +387,8 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             builder: (context, constraints) {
               return InteractiveViewer(
                 transformationController: _transformationController,
-                boundaryMargin: const EdgeInsets.symmetric(horizontal: 5000, vertical: 1000),
+                boundaryMargin: const EdgeInsets.symmetric(
+                    horizontal: 5000, vertical: 1000),
                 minScale: 0.1,
                 maxScale: 4.0,
                 constrained: false,
@@ -312,7 +407,8 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
                     ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 32, horizontal: 24),
                     child: _buildContent(),
                   ),
                 ),
@@ -328,9 +424,11 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
               children: [
                 FloatingActionButton.extended(
                   heroTag: 'copy_text',
-                  onPressed: _copyText,
-                  icon: const Icon(Icons.copy_rounded),
-                  label: const Text('Copy'),
+                  onPressed: _copyAsImage,
+                  icon: _isExporting 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor))
+                    : const Icon(Icons.copy_rounded),
+                  label: const Text('Copy Image'),
                   backgroundColor: AppConstants.surfaceColor,
                   foregroundColor: AppConstants.primaryColor,
                   elevation: 4,
@@ -385,13 +483,21 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             margin: const EdgeInsets.symmetric(vertical: 24),
             child: Row(
               children: [
-                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+                Expanded(
+                    child: Divider(
+                        color: Colors.grey.withOpacity(0.3), thickness: 1)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                  child: Text('PAGE BREAK / STICKER SEPARATION', 
-                    style: TextStyle(fontSize: 10, color: Colors.grey.withOpacity(0.6), fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                  child: Text('PAGE BREAK / STICKER SEPARATION',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.withOpacity(0.6),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1)),
                 ),
-                Expanded(child: Divider(color: Colors.grey.withOpacity(0.3), thickness: 1)),
+                Expanded(
+                    child: Divider(
+                        color: Colors.grey.withOpacity(0.3), thickness: 1)),
               ],
             ),
           );
