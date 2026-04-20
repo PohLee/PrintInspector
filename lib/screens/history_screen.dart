@@ -281,6 +281,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.code_rounded, color: colorScheme.primary),
+            title: const Text('Protocol'),
+            subtitle: Text(job.protocol.name.toUpperCase()),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.print, color: colorScheme.primary),
             title: const Text('Render Type'),
             subtitle: Text(job.renderType),
@@ -849,6 +855,50 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 fontSize: 13,
                 height: 1.5,
                 color: Colors.black),
+          );
+        } else if (block.type == PrintContentType.instruction &&
+            block.text != null) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.grey.withOpacity(0.1)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const Text(
+                    'CMD',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    block.text!,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      color: Colors.grey.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         } else if ((block.type == PrintContentType.bitImage ||
                 block.type == PrintContentType.rasterImage) &&

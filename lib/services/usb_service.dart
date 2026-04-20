@@ -101,6 +101,7 @@ class UsbService {
         jobSize: parsedData.jobSize,
         serviceType: _connectedDevice?.productName ?? 'USB',
         contentBlocks: parsedData.contentBlocks,
+        protocol: parsedData.protocol,
       );
 
       final id = await _databaseService.insertPrintJob(printJob);

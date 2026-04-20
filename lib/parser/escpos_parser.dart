@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
+import 'tspl_parser.dart';
 
 class PrintContentBlock {
   final PrintContentType type;
@@ -23,6 +24,8 @@ enum PrintContentType {
   bitImage,
   rasterImage,
   pageBreak,
+  instruction,
+  unknown,
 }
 
 class ESCPOSParser {
@@ -669,6 +672,7 @@ class PrintJobData {
   final String rawHex;
   final int jobSize;
   final List<PrintContentBlock> contentBlocks;
+  final PrintProtocol protocol;
 
   PrintJobData({
     required this.rawData,
@@ -676,14 +680,56 @@ class PrintJobData {
     required this.rawHex,
     required this.jobSize,
     required this.contentBlocks,
+    required this.protocol,
   });
 }
 
+enum PrintProtocol {
+  escpos,
+  tspl,
+  unknown
+}
+
+PrintProtocol detectProtocol(List<int> data) {
+  if (data.isEmpty) return PrintProtocol.escpos;
+
+  int scanLen = data.length > 500 ? 500 : data.length;
+  String prefix = String.fromCharCodes(data.sublist(0, scanLen)).toUpperCase();
+
+  int tsplScore = 0;
+  if (prefix.contains('SIZE ')) tsplScore++;
+  if (prefix.contains('GAP ')) tsplScore++;
+  if (prefix.contains('CLS\r') || prefix.contains('CLS\n')) tsplScore++;
+  if (prefix.contains('TEXT ')) tsplScore++;
+  if (prefix.contains('BARCODE ')) tsplScore++;
+  if (prefix.contains('PRINT ')) tsplScore++;
+  if (prefix.contains('BITMAP ')) tsplScore++;
+
+  if (tsplScore >= 1) {
+    // Some TSPL jobs just have SIZE and GAP and some text
+    return PrintProtocol.tspl;
+  }
+
+  return PrintProtocol.escpos;
+}
+
 PrintJobData parsePrintJob(List<int> data) {
-  final parser = ESCPOSParser();
-  final renderedText = parser.parse(data);
+  final protocol = detectProtocol(data);
+  
+  String renderedText;
+  List<PrintContentBlock> contentBlocks;
+
+  if (protocol == PrintProtocol.tspl) {
+    final parser = TSPLParser();
+    renderedText = parser.parse(data);
+    contentBlocks = parser.contentBlocks;
+  } else {
+    final parser = ESCPOSParser();
+    renderedText = parser.parse(data);
+    contentBlocks = parser.contentBlocks;
+  }
+
   final rawHex = ESCPOSParser.bytesToHex(data);
-  final contentBlocks = parser.contentBlocks;
 
   return PrintJobData(
     rawData: data,
@@ -691,5 +737,6 @@ PrintJobData parsePrintJob(List<int> data) {
     rawHex: rawHex,
     jobSize: data.length,
     contentBlocks: contentBlocks,
+    protocol: protocol,
   );
 }

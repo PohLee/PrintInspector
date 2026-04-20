@@ -94,6 +94,7 @@ class PrinterServer {
       jobSize: parsedData.jobSize,
       serviceType: '$_port',
       contentBlocks: parsedData.contentBlocks,
+      protocol: parsedData.protocol,
     );
 
     final id = await _databaseService.insertPrintJob(printJob);

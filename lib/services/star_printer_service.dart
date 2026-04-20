@@ -84,6 +84,7 @@ class StarPrinterService {
       jobSize: parsedData.jobSize,
       serviceType: 'Star:${printer.modelName ?? printer.portName}',
       contentBlocks: parsedData.contentBlocks,
+      protocol: parsedData.protocol,
     );
 
     final id = await _databaseService.insertPrintJob(printJob);

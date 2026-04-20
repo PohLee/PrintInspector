@@ -47,7 +47,7 @@ class _JobDetailScreenState extends State<JobDetailScreen>
 
   void _shareContent() {
     final content = '''
-ESC/POS Print Job Details
+Print Job Details
 ========================
 
 Timestamp: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(widget.printJob.timestamp)}
@@ -105,10 +105,8 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
   Future<void> _saveAsImage() async {
     setState(() => _isExporting = true);
     try {
-      await PrintJobExporter.saveAsImage(
-        _exportKey, 
-        'PrintJob_${widget.printJob.id ?? widget.printJob.timestamp.millisecondsSinceEpoch}'
-      );
+      await PrintJobExporter.saveAsImage(_exportKey,
+          'PrintJob_${widget.printJob.id ?? widget.printJob.timestamp.millisecondsSinceEpoch}');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -123,10 +121,8 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
   Future<void> _saveAsPdf() async {
     setState(() => _isExporting = true);
     try {
-      await PrintJobExporter.saveAsPdf(
-        widget.printJob,
-        'PrintJob_${widget.printJob.id ?? widget.printJob.timestamp.millisecondsSinceEpoch}'
-      );
+      await PrintJobExporter.saveAsPdf(widget.printJob,
+          'PrintJob_${widget.printJob.id ?? widget.printJob.timestamp.millisecondsSinceEpoch}');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -184,9 +180,12 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             tooltip: 'Share Details',
           ),
           PopupMenuButton<String>(
-            icon: _isExporting 
-              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.download_rounded),
+            icon: _isExporting
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.download_rounded),
             tooltip: 'Save rendered job',
             onSelected: (value) {
               if (value == 'image') _saveAsImage();
@@ -284,6 +283,9 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
             _buildMetadataRow('Client IP', widget.printJob.clientIp!),
           if (widget.printJob.serviceType != null)
             _buildMetadataRow('Port', widget.printJob.serviceType!),
+          _buildMetadataRow(
+              'Protocol', widget.printJob.protocol.name.toUpperCase()),
+          _buildMetadataRow('Content', widget.printJob.renderType),
         ],
       ),
     );
@@ -425,9 +427,13 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
                 FloatingActionButton.extended(
                   heroTag: 'copy_text',
                   onPressed: _copyAsImage,
-                  icon: _isExporting 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor))
-                    : const Icon(Icons.copy_rounded),
+                  icon: _isExporting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppConstants.primaryColor))
+                      : const Icon(Icons.copy_rounded),
                   label: const Text('Copy Image'),
                   backgroundColor: AppConstants.surfaceColor,
                   foregroundColor: AppConstants.primaryColor,
@@ -471,12 +477,58 @@ ${ESCPOSParser.bytesToPrettyHex(widget.printJob.rawData)}
               color: Colors.black,
             ),
           );
+        } else if (block.type == PrintContentType.instruction &&
+            block.text != null) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.grey.withOpacity(0.1)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const Text(
+                    'CMD',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    block.text!,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      color: Colors.grey.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
         } else if ((block.type == PrintContentType.bitImage ||
                 block.type == PrintContentType.rasterImage) &&
             block.imageData != null) {
           return Image.memory(
             block.imageData!,
             fit: BoxFit.contain,
+            width: double.infinity,
+            alignment: Alignment.centerLeft,
           );
         } else if (block.type == PrintContentType.pageBreak) {
           return Container(

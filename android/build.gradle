@@ -21,6 +21,14 @@ subprojects {
         targetSdkVersion: 34,
         ndkVersion: "25.1.8937393"
     ])
+
+    if (project.name == "flutter_star_prnt_plus") {
+        project.plugins.withId("com.android.library") {
+            project.android {
+                namespace "io.eddayy.flutter_star_prnt"
+            }
+        }
+    }
 }
 
 tasks.register("clean", Delete) {

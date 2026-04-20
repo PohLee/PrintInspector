@@ -20,6 +20,7 @@ class PrintJob {
   final int jobSize;
   final String? serviceType;
   final List<PrintContentBlock> contentBlocks;
+  final PrintProtocol protocol;
 
   PrintJob({
     this.id,
@@ -34,6 +35,7 @@ class PrintJob {
     required this.jobSize,
     this.serviceType,
     required this.contentBlocks,
+    this.protocol = PrintProtocol.unknown,
   });
 
   Map<String, dynamic> toMap() {
@@ -49,6 +51,7 @@ class PrintJob {
       'rendered_text': renderedText,
       'job_size': jobSize,
       'service_type': serviceType,
+      'protocol': protocol.name,
       'content_blocks': jsonEncode(contentBlocks
           .map((cb) => {
                 'type': cb.type.index,
@@ -98,6 +101,10 @@ class PrintJob {
       renderedText: map['rendered_text'] as String,
       jobSize: map['job_size'] as int,
       serviceType: map['service_type'] as String?,
+      protocol: PrintProtocol.values.firstWhere(
+        (e) => e.name == (map['protocol'] as String?),
+        orElse: () => PrintProtocol.unknown,
+      ),
       contentBlocks: contentBlocks,
     );
   }
@@ -128,6 +135,7 @@ class PrintJob {
       renderedText: renderedText ?? this.renderedText,
       jobSize: jobSize ?? this.jobSize,
       serviceType: serviceType ?? this.serviceType,
+      protocol: protocol ?? this.protocol,
       contentBlocks: contentBlocks ?? this.contentBlocks,
     );
   }
@@ -147,13 +155,17 @@ class PrintJob {
     if (contentBlocks.isEmpty) return 'Text';
     bool hasText = false;
     bool hasImage = false;
+    bool hasInstruction = false;
     for (final block in contentBlocks) {
       if (block.type == PrintContentType.text) hasText = true;
       if (block.type == PrintContentType.bitImage ||
           block.type == PrintContentType.rasterImage) hasImage = true;
+      if (block.type == PrintContentType.instruction) hasInstruction = true;
     }
     if (hasText && hasImage) return 'Mixed';
     if (hasImage) return 'Image';
+    if (hasText) return 'Text';
+    if (hasInstruction) return 'Instruction';
     return 'Text';
   }
 }
